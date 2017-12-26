@@ -1,0 +1,3 @@
+amqpstorm
+flask
+python-json-logger
