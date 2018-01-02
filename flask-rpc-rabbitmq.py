@@ -1,11 +1,11 @@
 import logging, time, timeit
 from flask import Flask
 
-from queue_tools import FibonacciRpcClient
+from queue_tools import FibonacciRpcClient, RpcServer
 
 from pythonjsonlogger import jsonlogger
 
-logging.getLogger().setLevel(logging.INFO)
+logging.getLogger().setLevel(logging.DEBUG)
 
 app = Flask(__name__)
 app.config.from_object('config.Config')
@@ -29,3 +29,12 @@ def fibonacci_client():
             time.sleep(app.config['FREQUENCY_REQUEST'])
 
     fibonacci_rpc.close()
+
+
+@app.cli.command()
+def fibonacci_server():
+    RPC_SERVER = RpcServer(hostname=app.config['QUEUE_HOST'],username=app.config['QUEUE_USER'],password=app.config['QUEUE_PASS'],
+                           rpc_queue='fibonacci')
+
+
+    RPC_SERVER.start_server()
