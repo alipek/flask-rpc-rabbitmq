@@ -37,7 +37,7 @@ class FibonacciRpcClient(object):
         self.channel = self.connection.channel()
 
         result = self.channel.queue.declare(exclusive=True, auto_delete=True)
-        self.channel.exchange.declare(self.exchange)
+        self.channel.exchange.declare(self.exchange, auto_delete=True)
         self.channel.queue.bind(queue=self.queue_name, exchange=self.exchange)
         self.callback_queue = result['queue']
 
@@ -49,16 +49,18 @@ class FibonacciRpcClient(object):
         self.channel.close()
         self.connection.close()
 
-    def __call__(self, number):
+    def __call__(self, *args):
         self.response = None
-        message = Message.create(self.channel, body=str(number))
+        dumps_body = json.dumps(list(args))
+        message = Message.create(self.channel, body=dumps_body)
         message.reply_to = self.callback_queue
         self.correlation_id = message.correlation_id
         message.publish('', self.exchange)
 
         while not self.response:
             self.channel.process_data_events(to_tuple=False)
-        return int(self.response)
+        result = json.loads(self.response)
+        return int(result['result'])
 
     def _on_response(self, message):
         if self.correlation_id != message.correlation_id:
@@ -172,7 +174,7 @@ class Consumer(object):
             self.active = True
             self.channel = connection.channel(rpc_timeout=10)
             self.channel.basic.qos(1)
-            self.channel.queue.declare(self.rpc_queue)
+            self.channel.queue.declare(self.rpc_queue,auto_delete=True)
             if self.exchange_name != '':
                 self.channel.exchange.declare(self.exchange_name, auto_delete=True)
                 self.channel.queue.bind(self.rpc_queue, self.exchange_name)
@@ -205,7 +207,7 @@ class Consumer(object):
         except BaseException as e:
             LOGGER.error(e)
 
-        LOGGER.debug(type(args))
+        LOGGER.debug(isinstance(args,(list)))
 
         response = fib(*args)
         # response = fib(number)
